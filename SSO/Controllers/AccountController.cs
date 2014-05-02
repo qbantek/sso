@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.Owin.Security;
+using Newtonsoft.Json;
 using SSO.Models;
 
 namespace SSO.Controllers
@@ -51,10 +52,7 @@ namespace SSO.Controllers
                     await SignInAsync(user, model.RememberMe);
                     return RedirectToLocal(returnUrl);
                 }
-                else
-                {
-                    ModelState.AddModelError("", "Invalid username or password.");
-                }
+                ModelState.AddModelError("", "Invalid username or password.");
             }
 
             // If we got this far, something failed, redisplay form
@@ -76,23 +74,80 @@ namespace SSO.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Register(RegisterViewModel model)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid) 
+                return View(model);
+
+            var user = new ApplicationUser
             {
-                var user = new ApplicationUser() { UserName = model.UserName };
-                var result = await UserManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    await SignInAsync(user, isPersistent: false);
-                    return RedirectToAction("Index", "Home");
-                }
-                else
-                {
-                    AddErrors(result);
-                }
+                UserName = model.UserName,
+                Email = model.UserName,
+                PostalCode = model.PostalCode,
+                FirstName = model.FirstName,
+                LastName = model.LastName
+            };
+
+            var finAppsUserToken = await CreateFinAppsAccount(model);
+            if (finAppsUserToken == null) 
+                return View(model);
+
+
+            user.FinAppsUserToken = finAppsUserToken;
+            var result = await UserManager.CreateAsync(user, model.Password);
+            if (result.Succeeded)
+            {
+                await SignInAsync(user, isPersistent: false);
+                return RedirectToAction("Index", "Home");
             }
+            AddErrors(result);
 
             // If we got this far, something failed, redisplay form
             return View(model);
+        }
+
+        private async Task<string> CreateFinAppsAccount(RegisterViewModel user)
+        {
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://financialappsqa.com/");
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                client.DefaultRequestHeaders.Add("X-FinApps-Token", "ConsolidatedCredit:LNT46OJFTibqKnz/wbHdPM9u170Zdtzkn/V0x1ivS5s=");
+
+                var postData = new List<KeyValuePair<string, string>>
+                {
+                    new KeyValuePair<string, string>("Email", user.UserName),
+                    new KeyValuePair<string, string>("Password", user.Password),
+                    new KeyValuePair<string, string>("PostalCode", user.PostalCode)
+                };
+
+                HttpContent content = new FormUrlEncodedContent(postData);
+
+                HttpResponseMessage response = await client.PostAsync("api/users/new", content);
+                if (!response.IsSuccessStatusCode) 
+                    return null;
+
+                string result = await response.Content.ReadAsStringAsync();
+                var serviceResult = JsonConvert.DeserializeObject<ServiceResult>(result);
+                if (serviceResult == null)
+                {
+                    ModelState.AddModelError("", "Unexpected error. Please try again.");
+                    return null;
+                }
+
+                if (serviceResult.Result != ResultCodeTypes.ACCOUNT_NewCustomerUserSavedSuccess)
+                {
+                    ModelState.AddModelError("", serviceResult.ResultString);
+                    return null;
+                }
+
+                var ssoResponse = JsonConvert.DeserializeObject<SingleSignOnRegistrationResponse>(serviceResult.ResultObject.ToString());
+                if (ssoResponse != null) 
+                    return ssoResponse.UserToken;
+
+                ModelState.AddModelError("", "Unexpected error. Please try again.");
+                return null;
+            }
         }
 
         //
@@ -101,16 +156,10 @@ namespace SSO.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Disassociate(string loginProvider, string providerKey)
         {
-            ManageMessageId? message = null;
             IdentityResult result = await UserManager.RemoveLoginAsync(User.Identity.GetUserId(), new UserLoginInfo(loginProvider, providerKey));
-            if (result.Succeeded)
-            {
-                message = ManageMessageId.RemoveLoginSuccess;
-            }
-            else
-            {
-                message = ManageMessageId.Error;
-            }
+            ManageMessageId? message = result.Succeeded 
+                ? ManageMessageId.RemoveLoginSuccess 
+                : ManageMessageId.Error;
             return RedirectToAction("Manage", new { Message = message });
         }
 
@@ -147,10 +196,7 @@ namespace SSO.Controllers
                     {
                         return RedirectToAction("Manage", new { Message = ManageMessageId.ChangePasswordSuccess });
                     }
-                    else
-                    {
-                        AddErrors(result);
-                    }
+                    AddErrors(result);
                 }
             }
             else
@@ -169,10 +215,7 @@ namespace SSO.Controllers
                     {
                         return RedirectToAction("Manage", new { Message = ManageMessageId.SetPasswordSuccess });
                     }
-                    else
-                    {
-                        AddErrors(result);
-                    }
+                    AddErrors(result);
                 }
             }
 
@@ -209,13 +252,10 @@ namespace SSO.Controllers
                 await SignInAsync(user, isPersistent: false);
                 return RedirectToLocal(returnUrl);
             }
-            else
-            {
-                // If the user does not have an account, then prompt the user to create an account
-                ViewBag.ReturnUrl = returnUrl;
-                ViewBag.LoginProvider = loginInfo.Login.LoginProvider;
-                return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { UserName = loginInfo.DefaultUserName });
-            }
+            // If the user does not have an account, then prompt the user to create an account
+            ViewBag.ReturnUrl = returnUrl;
+            ViewBag.LoginProvider = loginInfo.Login.LoginProvider;
+            return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { UserName = loginInfo.DefaultUserName });
         }
 
         //
@@ -265,7 +305,7 @@ namespace SSO.Controllers
                 {
                     return View("ExternalLoginFailure");
                 }
-                var user = new ApplicationUser() { UserName = model.UserName };
+                var user = new ApplicationUser { UserName = model.UserName };
                 var result = await UserManager.CreateAsync(user);
                 if (result.Succeeded)
                 {
@@ -306,7 +346,7 @@ namespace SSO.Controllers
         {
             var linkedAccounts = UserManager.GetLogins(User.Identity.GetUserId());
             ViewBag.ShowRemoveButton = HasPassword() || linkedAccounts.Count > 1;
-            return (ActionResult)PartialView("_RemoveAccountPartial", linkedAccounts);
+            return PartialView("_RemoveAccountPartial", linkedAccounts);
         }
 
         protected override void Dispose(bool disposing)
@@ -335,7 +375,7 @@ namespace SSO.Controllers
         {
             AuthenticationManager.SignOut(DefaultAuthenticationTypes.ExternalCookie);
             var identity = await UserManager.CreateIdentityAsync(user, DefaultAuthenticationTypes.ApplicationCookie);
-            AuthenticationManager.SignIn(new AuthenticationProperties() { IsPersistent = isPersistent }, identity);
+            AuthenticationManager.SignIn(new AuthenticationProperties { IsPersistent = isPersistent }, identity);
         }
 
         private void AddErrors(IdentityResult result)
@@ -370,10 +410,7 @@ namespace SSO.Controllers
             {
                 return Redirect(returnUrl);
             }
-            else
-            {
-                return RedirectToAction("Index", "Home");
-            }
+            return RedirectToAction("Index", "Home");
         }
 
         private class ChallengeResult : HttpUnauthorizedResult
@@ -395,7 +432,7 @@ namespace SSO.Controllers
 
             public override void ExecuteResult(ControllerContext context)
             {
-                var properties = new AuthenticationProperties() { RedirectUri = RedirectUri };
+                var properties = new AuthenticationProperties { RedirectUri = RedirectUri };
                 if (UserId != null)
                 {
                     properties.Dictionary[XsrfKey] = UserId;
