@@ -67,6 +67,68 @@ namespace SSO.Controllers
             return View();
         }
 
+        public async Task<ActionResult> Pfm()
+        {
+            ApplicationUser user = UserManager.FindById(User.Identity.GetUserId());
+            if (user == null || string.IsNullOrWhiteSpace(user.FinAppsUserToken)) 
+                return View();
+
+            var newSessionUrl = await GetNewFinAppsSessionUrl(user);
+            if (string.IsNullOrWhiteSpace(newSessionUrl)) 
+                return View();
+
+            return Redirect(newSessionUrl);
+        }
+
+        private async Task<string> GetNewFinAppsSessionUrl(ApplicationUser user)
+        {
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://powerwalletqa.com/");
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                client.DefaultRequestHeaders.Add("X-FinApps-Token", "ConsolidatedCredit:LNT46OJFTibqKnz/wbHdPM9u170Zdtzkn/V0x1ivS5s=");
+
+                var parameter = string.Format("{0}:{1}", user.UserName, user.FinAppsUserToken);
+                var base64Parameter = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(parameter));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64Parameter);
+
+                var postData = new List<KeyValuePair<string, string>>
+                {
+                    new KeyValuePair<string, string>("ClientIp", Request.UserHostAddress),
+                };
+
+                HttpContent content = new FormUrlEncodedContent(postData);
+
+                HttpResponseMessage response = await client.PostAsync("api/users/login", content);
+                if (!response.IsSuccessStatusCode)
+                    return null;
+
+                string result = await response.Content.ReadAsStringAsync();
+                var serviceResult = JsonConvert.DeserializeObject<ServiceResult>(result);
+                if (serviceResult == null)
+                {
+                    ModelState.AddModelError("", "Unexpected error. Please try again.");
+                    return null;
+                }
+
+                if (serviceResult.Result != ResultCodeTypes.SUCCESSFUL)
+                {
+                    ModelState.AddModelError("", serviceResult.ResultString);
+                    return null;
+                }
+
+                var ssoResponse = JsonConvert.DeserializeObject<SingleSignOnLoginResponse>(serviceResult.ResultObject.ToString());
+                if (ssoResponse != null)
+                    return ssoResponse.RedirectToUrl;
+
+                ModelState.AddModelError("", "Unexpected error. Please try again.");
+                return null;
+            }
+
+        }
+
         //
         // POST: /Account/Register
         [HttpPost]
@@ -108,7 +170,7 @@ namespace SSO.Controllers
         {
             using (var client = new HttpClient())
             {
-                client.BaseAddress = new Uri("http://financialappsqa.com/");
+                client.BaseAddress = new Uri("http://powerwalletqa.com/");
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 

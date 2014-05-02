@@ -197,7 +197,9 @@
     <Compile Include="Models\IdentityModels.cs" />
     <Compile Include="Models\ResultCodeTypes.cs" />
     <Compile Include="Models\ServiceResult.cs" />
+    <Compile Include="Models\SingleSignOnLoginResponse.cs" />
     <Compile Include="Models\SingleSignOnRegistrationResponse.cs" />
+    <Compile Include="Properties\Annotations.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Startup.cs" />
   </ItemGroup>
@@ -309,6 +311,7 @@
     <Content Include="Views\Home\Contact.cshtml" />
     <Content Include="Views\Home\Index.cshtml" />
     <Content Include="Scripts\jquery-1.11.0.min.map" />
+    <Content Include="Views\Account\Pfm.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
