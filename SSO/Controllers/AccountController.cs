@@ -10,13 +10,16 @@ using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.Owin.Security;
 using Newtonsoft.Json;
 using SSO.Models;
+using SSO.Services;
 
 namespace SSO.Controllers
 {
     [Authorize]
     public class AccountController : Controller
     {
-        public AccountController()
+        private readonly string _finAppsToken;
+
+        public AccountController(string apiKey)
             : this(new UserManager<ApplicationUser>(new UserStore<ApplicationUser>(new ApplicationDbContext())))
         {
         }
@@ -24,6 +27,9 @@ namespace SSO.Controllers
         public AccountController(UserManager<ApplicationUser> userManager)
         {
             UserManager = userManager;
+
+            var config = new Config();
+            _finAppsToken = config.Get("X-FinApps-Token");
         }
 
         public UserManager<ApplicationUser> UserManager { get; private set; }
@@ -88,7 +94,7 @@ namespace SSO.Controllers
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                client.DefaultRequestHeaders.Add("X-FinApps-Token", "ConsolidatedCredit:LNT46OJFTibqKnz/wbHdPM9u170Zdtzkn/V0x1ivS5s=");
+                client.DefaultRequestHeaders.Add("X-FinApps-Token", _finAppsToken);
 
                 var parameter = string.Format("{0}:{1}", user.UserName, user.FinAppsUserToken);
                 var base64Parameter = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(parameter));
@@ -126,7 +132,6 @@ namespace SSO.Controllers
                 ModelState.AddModelError("", "Unexpected error. Please try again.");
                 return null;
             }
-
         }
 
         //
@@ -174,7 +179,7 @@ namespace SSO.Controllers
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                client.DefaultRequestHeaders.Add("X-FinApps-Token", "ConsolidatedCredit:LNT46OJFTibqKnz/wbHdPM9u170Zdtzkn/V0x1ivS5s=");
+                client.DefaultRequestHeaders.Add("X-FinApps-Token", _finAppsToken);
 
                 var postData = new List<KeyValuePair<string, string>>
                 {
