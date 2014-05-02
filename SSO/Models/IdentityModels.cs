@@ -7,6 +7,7 @@ namespace SSO.Models
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string PostalCode { get; set; }
+        public string FinAppsUserToken { get; set; }
     }
 
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>

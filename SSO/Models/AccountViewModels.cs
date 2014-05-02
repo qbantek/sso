@@ -31,7 +31,8 @@ namespace SSO.Models
     public class LoginViewModel
     {
         [Required]
-        [Display(Name = "User name")]
+        [Display(Name = "Email")]
+        [DataType(DataType.EmailAddress)]
         public string UserName { get; set; }
 
         [Required]
@@ -46,7 +47,10 @@ namespace SSO.Models
     public class RegisterViewModel
     {
         [Required]
-        [Display(Name = "User name")]
+        [Display(Name = "Email")]
+        [DataType(DataType.EmailAddress)]
+        [EmailAddress]
+        [StringLength(100)]
         public string UserName { get; set; }
 
         [Required]
@@ -59,5 +63,18 @@ namespace SSO.Models
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; }
+
+        [Required]
+        [StringLength(10, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 5)]
+        [DataType(DataType.PostalCode)]
+        public string PostalCode { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "First Name")]
+        public string FirstName { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Last Name")]
+        public string LastName { get; set; }
     }
 }

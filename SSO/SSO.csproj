@@ -188,6 +188,10 @@
     <Compile Include="Migrations\201405021302514_Initial.Designer.cs">
       <DependentUpon>201405021302514_Initial.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201405021343508_FinAppsUserToken.cs" />
+    <Compile Include="Migrations\201405021343508_FinAppsUserToken.Designer.cs">
+      <DependentUpon>201405021343508_FinAppsUserToken.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\AccountViewModels.cs" />
     <Compile Include="Models\IdentityModels.cs" />
@@ -323,6 +327,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\201405021302514_Initial.resx">
       <DependentUpon>201405021302514_Initial.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201405021343508_FinAppsUserToken.resx">
+      <DependentUpon>201405021343508_FinAppsUserToken.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>
