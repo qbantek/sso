@@ -19,7 +19,7 @@ namespace SSO.Controllers
     {
         private readonly string _finAppsToken;
 
-        public AccountController(string apiKey)
+        public AccountController()
             : this(new UserManager<ApplicationUser>(new UserStore<ApplicationUser>(new ApplicationDbContext())))
         {
         }
